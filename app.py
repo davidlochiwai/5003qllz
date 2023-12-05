@@ -141,7 +141,7 @@ def calculate_age(dob):
 st.set_page_config(layout="wide")
 
 st.sidebar.title("Navigation")
-choice = st.sidebar.radio("Go to", ("Home", "Manage Patients", "Manage Appointments", "Manage Medical Records"))
+choice = st.sidebar.radio("Go to", ("Home", "Manage Patients", "Manage Appointments", "Manage Medical Records", "Search Database"))
 
 if choice == "Home":
     st.title("Healthcare Patient Management System - Home")
@@ -340,6 +340,87 @@ elif choice == "Manage Medical Records":
             st.dataframe(medical_records_df, height=600, use_container_width=True, hide_index=True)
         else:
             st.write("No medical records found.")
+
+elif choice == "Search Database":
+    st.title("Search Patient Records")
+
+    # Step 1: Selection of the search field
+    # Use a key for the selectbox to reset its value when selection changes
+    key = 'search_field'
+    if key not in st.session_state:
+        st.session_state[key] = "Patient ID"
+
+    new_search_field = st.selectbox("Choose a field to search by", 
+                                    ["Patient ID", "First Name", "Last Name", "Date of Birth", "Contact Number"],
+                                    key=key)
+
+    # Reset the confirmation state if the selection changes
+    if new_search_field != st.session_state[key]:
+        st.session_state[key] = new_search_field
+        if 'search_field_confirmed' in st.session_state:
+            del st.session_state['search_field_confirmed']
+
+    if st.button("Change Search Field"):
+        st.session_state['search_field_confirmed'] = new_search_field  # Store the selection in session state
+
+    # Step 2: Input and Search (only after selection is confirmed)
+    if 'search_field_confirmed' in st.session_state:
+        with st.form("search_patient_form"):
+            search_field = st.session_state['search_field_confirmed']  # Retrieve the selection from session state
+
+            # Display the appropriate input field based on the chosen search field
+            if search_field == "Patient ID":
+                search_value = st.number_input("Patient ID", min_value=0, step=1)
+            elif search_field == "First Name":
+                search_value = st.text_input("First Name")
+            elif search_field == "Last Name":
+                search_value = st.text_input("Last Name")
+            elif search_field == "Date of Birth":
+                search_value = st.date_input("Date of Birth")
+            elif search_field == "Contact Number":
+                search_value = st.text_input("Contact Number")
+
+            submit_button_search = st.form_submit_button("Search")
+
+        if submit_button_search:
+            # Construct the query based on selected field
+            if search_field == "Patient ID":
+                patients = c.execute("SELECT * FROM Patients WHERE PatientID = ?", (search_value,)).fetchall()
+            elif search_field == "First Name":
+                patients = c.execute("SELECT * FROM Patients WHERE FirstName LIKE ?", (f"%{search_value}%",)).fetchall()
+            elif search_field == "Last Name":
+                patients = c.execute("SELECT * FROM Patients WHERE LastName LIKE ?", (f"%{search_value}%",)).fetchall()
+            elif search_field == "Date of Birth":
+                patients = c.execute("SELECT * FROM Patients WHERE DateOfBirth = ?", (search_value.strftime("%Y-%m-%d"),)).fetchall()
+            elif search_field == "Contact Number":
+                patients = c.execute("SELECT * FROM Patients WHERE ContactNumber LIKE ?", (f"%{search_value}%",)).fetchall()
+
+            # Display the results
+            if patients:
+                for patient in patients:
+                    # Display patient details including DOB and Contact Number
+                    st.subheader(f"Patient: {patient[1]} {patient[2]} (ID: {patient[0]})")
+                    st.text(f"Date of Birth: {patient[3]}")
+                    st.text(f"Contact Number: {patient[4]}")
+                    # Display patient's appointments
+                    appointments = c.execute("SELECT * FROM Appointments WHERE PatientID = ?", (patient[0],)).fetchall()
+                    if appointments:
+                        st.write("Appointments:")
+                        appointments_df = pd.DataFrame(appointments, columns=["Appointment ID", "Patient ID", "Date", "Time", "Status"])
+                        st.dataframe(appointments_df, height=200, use_container_width=True, hide_index=True)
+                    else:
+                        st.write("No appointments found.")
+                    
+                    # Display patient's medical records
+                    medical_records = c.execute("SELECT * FROM MedicalRecords WHERE PatientID = ?", (patient[0],)).fetchall()
+                    if medical_records:
+                        st.write("Medical Records:")
+                        medical_records_df = pd.DataFrame(medical_records, columns=["Record ID", "Patient ID", "Date", "Diagnosis"])
+                        st.dataframe(medical_records_df, height=200, use_container_width=True, hide_index=True)
+                    else:
+                        st.write("No medical records found.")
+            else:
+                st.warning("No patients found with the provided search criteria.")
 
 # Always close the connection
 conn.close()
