@@ -177,29 +177,30 @@ if choice == "Home":
 
     # System Introduction and Description
     st.markdown("""
-    The Healthcare Patient Management System is designed to streamline the management of patient records, appointments, and medical histories in a healthcare setting. This system allows for efficient organization and access to patient information, enhancing the quality of care provided. Key features include:
+    The Healthcare Patient Management System is designed to streamline the management of patient records, appointments, medical histories, and doctor information in a healthcare setting. This system allows for efficient organization and access to patient and doctor information, enhancing the quality of care provided. Key features include:
 
     - **Patient Management**: Register new patients, update their details, or remove patient records as needed. Keep track of personal details like names, birth dates, and contact information.
+
+    - **Doctor Management**: Manage doctor profiles, including adding new doctors, updating their information, and removing them from the system. Keep track of doctors' names, departments, and contact information.
 
     - **Appointment Scheduling**: Schedule, view, update, or cancel appointments. Manage appointment dates and times, and keep track of upcoming and past appointments.
 
     - **Medical Record Keeping**: Maintain comprehensive medical records for each patient. Add new records, update diagnoses, and manage historical health data.
-
     """)
-
-    st.write("The current database contains:")
 
     # Quick Summary of System Data
     total_patients = c.execute("SELECT COUNT(*) FROM Patients").fetchone()[0]
+    total_doctors = c.execute("SELECT COUNT(*) FROM Doctors").fetchone()[0]
     total_appointments = c.execute("SELECT COUNT(*) FROM Appointments").fetchone()[0]
     total_medical_records = c.execute("SELECT COUNT(*) FROM MedicalRecords").fetchone()[0]
     upcoming_appointments = c.execute("SELECT COUNT(*) FROM Appointments WHERE AppointmentDate >= DATE('now')").fetchone()[0]
     
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Total Patients", total_patients)
-    col2.metric("Total Appointments", total_appointments)
-    col3.metric("Upcoming Appointments", upcoming_appointments)
-    col4.metric("Total Medical Records", total_medical_records)
+    col2.metric("Total Doctors", total_doctors)
+    col3.metric("Total Appointments", total_appointments)
+    col4.metric("Upcoming Appointments", upcoming_appointments)
+    col5.metric("Total Medical Records", total_medical_records)
 
     # Visualization of Patient Age Distribution
     dob_data = c.execute("SELECT DateOfBirth FROM Patients").fetchall()
