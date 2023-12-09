@@ -1,79 +1,119 @@
 import sqlite3
+from faker import Faker
 import random
 from datetime import datetime, timedelta
 
-# Lists of common first and last names
-first_names = ['James', 'Mary', 'John', 'Patricia', 'Robert', 'Jennifer', 'Michael', 'Linda', 'William', 'Elizabeth',
-               'David', 'Barbara', 'Richard', 'Susan', 'Joseph', 'Jessica', 'Thomas', 'Sarah', 'Charles', 'Karen']
-last_names = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez',
-              'Hernandez', 'Lopez', 'Gonzalez', 'Wilson', 'Anderson', 'Thomas', 'Taylor', 'Moore', 'Jackson', 'Martin']
+# Initialize Faker
+fake = Faker()
 
-diagnoses = [
-    'Hypertension', 'Type 2 Diabetes', 'Common Cold', 'Influenza', 'Asthma',
-    'Bronchitis', 'Pneumonia', 'Strep Throat', 'Gastroenteritis', 'Arthritis',
-    'Back Pain', 'Dermatitis', 'Migraine', 'Anxiety', 'Depression',
-    'Allergic Rhinitis', 'Reflux Esophagitis', 'Thyroid Disorder', 'Anemia', 'Urinary Tract Infection'
-]
-
-# Function to generate a random date of birth
-def random_dob(start_year=1940, end_year=2005):
-    start = datetime(year=start_year, month=1, day=1)
-    years = end_year - start_year + 1
-    end = datetime(year=end_year, month=12, day=31)
-    return start + (end - start) * random.random()
-
-# Function to generate a random date for appointments or medical records
-def random_date(start_date):
-    days = random.randint(-90, 90)
-    return start_date + timedelta(days=days)
-
-# Connect to the SQLite database
+# Connect to the database
 conn = sqlite3.connect('healthcare.db')
 c = conn.cursor()
 
-# Clear existing data from tables
-c.execute('DELETE FROM Patients')
-c.execute('DELETE FROM Appointments')
-c.execute('DELETE FROM MedicalRecords')
+# Clear existing data
+def clear_data():
+    c.execute('DELETE FROM Patients')
+    c.execute('DELETE FROM Doctors')
+    c.execute('DELETE FROM Appointments')
+    c.execute('DELETE FROM MedicalRecords')
+    conn.commit()
 
-# Generate data for the Patients table
-patients_data = []
-for i in range(1, 51):
-    first_name = random.choice(first_names)
-    last_name = random.choice(last_names)
-    dob = random_dob().strftime('%Y-%m-%d')
-    contact_number = ''.join(random.choices('0123456789', k=10))
-    patients_data.append((first_name, last_name, dob, contact_number))
+# Diagnoses and symptoms by department
+department_details = {
+    'Cardiology': {
+        'Hypertension': ['Headaches', 'Shortness of breath', 'Nosebleeds'],
+        'Coronary Artery Disease': ['Chest pain', 'Nausea', 'Extreme fatigue'],
+        'Heart Failure': ['Swelling in legs', 'Irregular heartbeat', 'Coughing']
+    },
+    'Neurology': {
+        'Epilepsy': ['Seizures', 'Temporary confusion', 'Uncontrollable jerking'],
+        'Migraines': ['Severe headache', 'Nausea', 'Sensitivity to light'],
+        'Alzheimer’s Disease': ['Memory loss', 'Difficulty planning', 'Confusion']
+    },
+    'Orthopedics': {
+        'Arthritis': ['Joint pain', 'Swelling', 'Decreased range of motion'],
+        'Osteoporosis': ['Back pain', 'Stooped posture', 'Easily fractured bones'],
+        'Fracture': ['Pain', 'Swelling', 'Bruising around the injured area']
+    },
+    'Pediatrics': {
+        'Asthma': ['Wheezing', 'Coughing', 'Chest tightness'],
+        'Chickenpox': ['Itchy rash', 'Fever', 'Loss of appetite'],
+        'Measles': ['Fever', 'Dry cough', 'Runny nose']
+    },
+    'Oncology': {
+        'Breast Cancer': ['Lump in breast', 'Change in breast shape', 'Pain in any area of the breast'],
+        'Lung Cancer': ['Coughing blood', 'Chest pain', 'Weight loss'],
+        'Leukemia': ['Fever or chills', 'Persistent fatigue', 'Frequent infections']
+    }
+}
 
-# Insert data into Patients table
-c.executemany('INSERT INTO Patients (FirstName, LastName, DateOfBirth, ContactNumber) VALUES (?, ?, ?, ?)', patients_data)
+# List of clinics
+clinics = ['Clinic 01', 'Clinic 02', 'Clinic 03', 'Clinic 04', 'Clinic 05']
 
-# Generate data for the Appointments table
-appointments_data = []
-appointment_start_date = datetime.now()
-for i in range(1, 51):
-    patient_id = i
-    appointment_date = random_date(appointment_start_date).strftime('%Y-%m-%d')
-    appointment_time = f"{random.randint(8, 17)}:{random.choice(['00', '30'])}"
-    status = random.choice(['Scheduled', 'Completed', 'Cancelled', 'No Show'])
-    appointments_data.append((patient_id, appointment_date, appointment_time, status))
+# Generate Doctors
+def generate_doctors(n):
+    for dept, diagnoses in department_details.items():
+        for _ in range(n // len(department_details)):
+            c.execute('''
+                INSERT INTO Doctors (FirstName, LastName, Department, ContactNumber) 
+                VALUES (?, ?, ?, ?)
+            ''', (fake.first_name(), fake.last_name(), dept, fake.phone_number()))
 
-# Insert data into Appointments table
-c.executemany('INSERT INTO Appointments (PatientID, AppointmentDate, AppointmentTime, Status) VALUES (?, ?, ?, ?)', appointments_data)
+# Generate Patients
+def generate_patients(n):
+    for _ in range(n):
+        dob = fake.date_of_birth(minimum_age=0, maximum_age=100).strftime('%Y-%m-%d')
+        c.execute('''
+            INSERT INTO Patients (FirstName, LastName, DateOfBirth, ContactNumber) 
+            VALUES (?, ?, ?, ?)
+        ''', (fake.first_name(), fake.last_name(), dob, fake.phone_number()))
 
-# Generate data for the MedicalRecords table
-medical_records_data = []
-medical_record_start_date = datetime.now() - timedelta(days=365)
-for i in range(1, 51):
-    patient_id = i
-    date = random_date(medical_record_start_date).strftime('%Y-%m-%d')
-    diagnosis = random.choice(diagnoses)  # Select a random diagnosis from the list
-    medical_records_data.append((patient_id, date, diagnosis))
+# Generate Appointments and Medical Records
+def generate_appointments(past_n, future_n):
+    statuses_past = ['Completed', 'Cancelled', 'No Show']
+    statuses_future = ['Scheduled', 'Cancelled']
+    today = datetime(2024, 1, 1)
 
-# Insert data into MedicalRecords table
-c.executemany('INSERT INTO MedicalRecords (PatientID, Date, Diagnosis) VALUES (?, ?, ?)', medical_records_data)
+    for _ in range(past_n):
+        date = today - timedelta(days=random.randint(1, 365))
+        doctor_id = random.randint(1, 10)
+        doctor_dept = c.execute('SELECT Department FROM Doctors WHERE DoctorID = ?', (doctor_id,)).fetchone()[0]
+        diagnosis = random.choice(list(department_details[doctor_dept].keys()))
+        symptoms = random.choice(department_details[doctor_dept][diagnosis])
+        location = random.choice(clinics)
+        status = random.choice(statuses_past)
+        c.execute('''
+            INSERT INTO Appointments (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Location)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (random.randint(1, 30), doctor_id, date.strftime('%Y-%m-%d'), fake.time(), status, location))
+        
+        # Create a medical record only for 'Completed' appointments
+        if status == 'Completed':
+            appointment_id = c.lastrowid
+            c.execute('''
+                INSERT INTO MedicalRecords (AppointmentID, Diagnosis, Details)
+                VALUES (?, ?, ?)
+            ''', (appointment_id, diagnosis, symptoms))
 
-# Commit the transactions and close the connection
+    for _ in range(future_n):
+        date = today + timedelta(days=random.randint(1, 365))
+        location = random.choice(clinics)
+        status = random.choice(statuses_future)
+        c.execute('''
+            INSERT INTO Appointments (PatientID, DoctorID, AppointmentDate, AppointmentTime, Status, Location)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (random.randint(1, 30), random.randint(1, 10), date.strftime('%Y-%m-%d'), fake.time(), status, location))
+
+# Clear existing data
+clear_data()
+
+# Generate new data
+generate_doctors(10)
+generate_patients(200)
+generate_appointments(300, 50)
+
+# Commit changes and close connection
 conn.commit()
 conn.close()
 
+print("Data generation complete.")
